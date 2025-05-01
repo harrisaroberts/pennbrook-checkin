@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS guests;
+DROP TABLE IF EXISTS members;
+DROP TABLE IF EXISTS memberships;
+
