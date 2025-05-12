@@ -1,44 +1,76 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+interface Member {
+  id: number;
+  name: string;
+  age: number;
+  member_type: string;
+  membership_id: number;
+}
 
 export default function MemberSearchPage() {
-    const [query, setQuery] = useState("");
-    const [members, setMembers] = useState<any[]>([]);
+  const [allMembers, setAllMembers] = useState<Member[]>([]);
+  const [query, setQuery] = useState("");
+  const [filtered, setFiltered] = useState<Member[]>([]);
 
-    const handleSearch = async () => {
-        console.log("Search triggered:", query); // should log when button is clicked
-
-        const res = await fetch(`http://localhost:8080/members?name=${query}`);
-        const text = await res.text();
-        console.log("Raw response:", text);
+  // Fetch all members once
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const res = await fetch("http://localhost:8080/members?name=");
+        const data = await res.json();
+        setAllMembers(data);
+      } catch (err) {
+        console.error("Failed to fetch members:", err);
+      }
     };
+    fetchAll();
+  }, []);
 
-    return (
-        <div className="p-8 max-w-xl mx-auto">
-            <h1 className="text-2xl font-bold mb-4">🔍 Search Members</h1>
-            <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Enter member name..."
-                className="w-full px-4 py-2 border rounded mb-4"
-            />
-            <button
-                onClick={handleSearch}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-                Search
-            </button>
-
-            <ul className="mt-6 space-y-2">
-                {members.map((member) => (
-                    <li key={member.id} className="border p-4 rounded shadow">
-                        <strong>{member.name}</strong> — {member.member_type}, Age {member.age}
-                    </li>
-                ))}
-            </ul>
-        </div>
+  // Filter members as the user types
+  useEffect(() => {
+    const q = query.toLowerCase();
+    const matches = allMembers.filter((m) =>
+      m.name.toLowerCase().includes(q)
     );
+    setFiltered(matches);
+  }, [query, allMembers]);
+
+  return (
+    <div className="p-8 max-w-xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">🔍 Search Members</h1>
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Start typing a name..."
+        className="w-full px-4 py-2 border rounded"
+      />
+
+      {query && (
+        <ul className="mt-4 border rounded divide-y">
+          {filtered.length > 0 ? (
+            filtered.map((member) => (
+              <li key={member.id} className="border p-4 rounded shadow hover:bg-gray-50 transition">
+                <Link href={`/members/${member.id}`}>
+                  <div>
+                    <div className="font-semibold">{member.name}</div>
+                    <div className="text-sm text-gray-600">
+                      {member.member_type}, Age {member.age}
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            ))
+          ) : (
+            <li className="p-3 text-gray-500">No matches found</li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
 }
 
