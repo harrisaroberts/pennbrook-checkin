@@ -7,7 +7,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 
-	"github.com/harrisaroberts/pennbrook-checkin/backend/db"
+	"backend/db"
+	"backend/handlers"
+	"backend/middleware"
 )
 
 func main() {
@@ -19,6 +21,11 @@ func main() {
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
 	})
+
+	http.ListenAndServe(":8080", middleware.EnableCORS(r))
+
+	r.HandleFunc("/members", handlers.SearchMembers).Methods("GET")
+	r.HandleFunc("/memberships", handlers.GetMemberships).Methods("GET")
 
 	log.Println("Server running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
