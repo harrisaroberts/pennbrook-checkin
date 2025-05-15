@@ -35,3 +35,11 @@ CREATE TABLE guests (
     notes TEXT
 );
 
+CREATE TABLE IF NOT EXISTS checkins (
+  id SERIAL PRIMARY KEY,
+  member_id INT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  checkin_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (member_id, checkin_date)
+);
+

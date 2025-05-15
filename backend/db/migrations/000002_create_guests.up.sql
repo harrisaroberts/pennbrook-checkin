@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS guests (
+  id SERIAL PRIMARY KEY,
+  membership_id INT NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  visit_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
