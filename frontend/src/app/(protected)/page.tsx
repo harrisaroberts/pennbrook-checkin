@@ -33,29 +33,30 @@ export default function MemberSearchPage() {
   // Filter members as the user types
   useEffect(() => {
     const q = query.toLowerCase();
-    const matches = allMembers.filter((m) =>
-      m.name.toLowerCase().includes(q)
-    );
+    const matches = allMembers.filter((m) => m.name.toLowerCase().includes(q));
     setFiltered(matches);
   }, [query, allMembers]);
 
   return (
     <div className="p-8 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">🔍 Search Members</h1>
+      <h1 className="text-center text-2xl font-bold mb-4">Search Members</h1>
       <input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Start typing a name..."
-        className="w-full px-4 py-2 border rounded"
+        className="w-full px-4 py-2 border border-blue-500 rounded"
       />
 
       {query && (
         <ul className="mt-4 border rounded divide-y">
           {filtered.length > 0 ? (
             filtered.map((member) => (
-              <li key={member.id} className="border p-4 rounded shadow hover:bg-gray-50 transition">
-                <Link href={`/members/${member.id}`}>
+              <li
+                key={member.id}
+                className="border p-4 rounded shadow hover:bg-gray-50 transition"
+              >
+                <Link href={`/memberships/${member.membership_id}`}>
                   <div>
                     <div className="font-semibold">{member.name}</div>
                     <div className="text-sm text-gray-600">
@@ -73,4 +74,3 @@ export default function MemberSearchPage() {
     </div>
   );
 }
-

@@ -6,14 +6,18 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+
+	"github.com/gorilla/mux"
 )
 
 type Member struct {
-	ID           int    `json:"id"`
-	Name         string `json:"name"`
-	Age          int    `json:"age"`
-	MemberType   string `json:"member_type"`
-	MembershipID int    `json:"membership_id"`
+	ID               int    `json:"id"`
+	Name             string `json:"name"`
+	Age              int    `json:"age"`
+	MemberType       string `json:"member_type"`
+	MembershipID     int    `json:"membership_id"`
+	SwimTestPassed   bool   `json:"swim_test_passed"`
+	ParentNoteOnFile bool   `json:"parent_note_on_file"`
 }
 
 type MemberDetail struct {
@@ -24,7 +28,7 @@ type MemberDetail struct {
 	SwimTestPassed   bool   `json:"swim_test_passed"`
 	ParentNoteOnFile bool   `json:"parent_note_on_file"`
 	IsCheckedIn      bool   `json:"is_checked_in"`
-    MembershipID     int    `json:"membership_id"`
+	MembershipID     int    `json:"membership_id"`
 }
 
 // SearchMembers returns all members or filters by name
@@ -63,68 +67,138 @@ func SearchMembers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(results)
 }
 
-// GetFamilyByMemberID returns all members in the same membership
-func GetFamilyByMemberID(w http.ResponseWriter, r *http.Request) {
-	idStr := r.URL.Query().Get("id")
-	if idStr == "" {
-		http.Error(w, "Missing member ID", http.StatusBadRequest)
+func UpdateSwimTestStatus(w http.ResponseWriter, r *http.Request) {
+	if !isGuardOrAdmin(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	var membershipID int
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	var input struct {
+		SwimTestPassed bool `json:"swim_test_passed"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "Invalid body", http.StatusBadRequest)
+		return
+	}
+
+	_, err := db.DB.Exec(
+		"UPDATE members SET swim_test_passed = $1 WHERE id = $2",
+		input.SwimTestPassed,
+		id,
+	)
+	if err != nil {
+		http.Error(w, "Update failed", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func GetMemberByID(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	var m Member
 	err := db.DB.QueryRow(`
-		SELECT membership_id FROM members WHERE id = $1
-	`, idStr).Scan(&membershipID)
+		SELECT id, name, age, member_type, swim_test_passed, parent_note_on_file, membership_id
+		FROM members
+		WHERE id = $1
+	`, id).Scan(
+		&m.ID,
+		&m.Name,
+		&m.Age,
+		&m.MemberType,
+		&m.SwimTestPassed,
+		&m.ParentNoteOnFile,
+		&m.MembershipID,
+	)
 	if err != nil {
 		http.Error(w, "Member not found", http.StatusNotFound)
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(m)
+}
+
+func UpdateMemberByID(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	var m Member
+	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	_, err := db.DB.Exec(`UPDATE members
+		SET name = $1,
+		    age = $2,
+		    member_type = $3,
+		    swim_test_passed = $4,
+		    parent_note_on_file = $5
+		WHERE id = $6`,
+		m.Name, m.Age, m.MemberType, m.SwimTestPassed, m.ParentNoteOnFile, id)
+	if err != nil {
+		http.Error(w, "Failed to update member", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func GetMembersByMembershipID(w http.ResponseWriter, r *http.Request) {
+	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		http.Error(w, "Missing membership ID", http.StatusBadRequest)
+		return
+	}
+
 	rows, err := db.DB.Query(`
 		SELECT 
-			id, 
-			name, 
-			age, 
-			member_type, 
-			swim_test_passed, 
-			parent_note_on_file,
-            membership_id,
+			id, name, age, member_type, swim_test_passed, parent_note_on_file, membership_id,
 			EXISTS (
-				SELECT 1 
-				FROM checkins 
+				SELECT 1 FROM checkins 
 				WHERE checkins.member_id = members.id 
 				AND checkin_date = CURRENT_DATE
 			) AS is_checked_in
 		FROM members
 		WHERE membership_id = $1
 		ORDER BY id
-	`, membershipID)
+	`, idStr)
 	if err != nil {
-		http.Error(w, "Failed to query family", http.StatusInternalServerError)
+		http.Error(w, "Query error", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	var family []MemberDetail
+	var members []MemberDetail
 	for rows.Next() {
 		var m MemberDetail
-		if err := rows.Scan(
+		err := rows.Scan(
 			&m.ID,
 			&m.Name,
 			&m.Age,
 			&m.MemberType,
 			&m.SwimTestPassed,
 			&m.ParentNoteOnFile,
-            &m.MembershipID,
+			&m.MembershipID,
 			&m.IsCheckedIn,
-		); err != nil {
-			http.Error(w, "Failed to scan member", http.StatusInternalServerError)
+		)
+		if err != nil {
+			http.Error(w, "Scan error", http.StatusInternalServerError)
 			return
 		}
-		family = append(family, m)
+		members = append(members, m)
+	}
+
+	if len(members) == 0 {
+		http.Error(w, "No members found", http.StatusNotFound)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(family)
+	json.NewEncoder(w).Encode(members)
 }
-

@@ -1,11 +1,12 @@
 package handlers
 
 import (
-	"net/http"
-	"github.com/gorilla/mux"
-	"strconv"
 	"backend/db"
 	"log"
+	"net/http"
+	"strconv"
+
+	"github.com/gorilla/mux"
 )
 
 func UndoCheckIn(w http.ResponseWriter, r *http.Request) {
@@ -29,4 +30,3 @@ func UndoCheckIn(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
-

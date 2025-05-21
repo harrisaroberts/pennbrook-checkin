@@ -1,12 +1,11 @@
 package handlers
 
 import (
+	"backend/db"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
-
-	"backend/db"
 )
 
 type FamilyMember struct {
@@ -16,7 +15,7 @@ type FamilyMember struct {
 	MemberType       string `json:"member_type"`
 	SwimTestPassed   bool   `json:"swim_test_passed"`
 	ParentNoteOnFile bool   `json:"parent_note_on_file"`
-    IsCheckedIn      bool   `json:"is_checked_in"`
+	IsCheckedIn      bool   `json:"is_checked_in"`
 }
 
 type MembershipWithMembers struct {
